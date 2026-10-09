@@ -1,0 +1,100 @@
+# Vibe-Wise Vault Sync
+
+Syncs the vibe-wise learning files (`profile.md`, `project-map.md`, `progress.md`) between your
+repos and a folder in your Obsidian vault, for people who work on more than one PC and want those
+files to stay in sync.
+
+## How it works
+
+Each repo gets its own folder in the vault: `<vault>/<repo-name>/`. Git worktrees share the folder
+of their main repo.
+
+| When                                             | What happens                                           |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| You send `/vibe-wise:learn`                      | The session is marked as a learn session; vault → repo |
+| A learn thread is reopened (resumed)             | vault → repo                                           |
+| A learn session ends (settle, archive, or close) | repo → vault                                           |
+
+Sessions that never ran `/vibe-wise:learn` never push, so an outdated local copy can't overwrite
+newer state in the vault.
+
+Under the hood, it's three hooks (`UserPromptSubmit`, `SessionStart` with the `resume`
+matcher, and `SessionEnd`) that call `vibe-wise-sync.sh`. Every sync is logged to
+`~/.claude/vibe-wise-sync/sync.log`.
+
+## Requirements
+
+- Claude Code with the [vibe-wise](https://github.com/nykooi1/vibe-wise) plugin
+- `git`, `rsync`, and `python3`
+- Linux, macOS, or WSL (the script is bash; native Windows isn't supported)
+
+## Install
+
+Send this prompt to your agent, replacing `{VAULT_PATH}` with the folder where the files should
+be stored:
+
+```
+Install the hook from https://github.com/<your-user>/vibe-wise-vault-sync following its README.
+The vault path is: {VAULT_PATH}
+```
+
+Or install it manually:
+
+1. Copy `vibe-wise-sync.sh` to `~/.claude/hooks/` and make it executable:
+   `chmod +x ~/.claude/hooks/vibe-wise-sync.sh`
+2. **Merge** these hooks into `~/.claude/settings.json`. Don't replace the file; keep any hooks
+   you already have:
+
+   ```json
+   "hooks": {
+     "UserPromptSubmit": [
+       { "hooks": [{ "type": "command", "timeout": 30,
+         "command": "VIBE_WISE_VAULT='{VAULT_PATH}' \"$HOME/.claude/hooks/vibe-wise-sync.sh\" pull" }] }
+     ],
+     "SessionStart": [
+       { "matcher": "resume", "hooks": [{ "type": "command", "timeout": 30,
+         "command": "VIBE_WISE_VAULT='{VAULT_PATH}' \"$HOME/.claude/hooks/vibe-wise-sync.sh\" resume" }] }
+     ],
+     "SessionEnd": [
+       { "hooks": [{ "type": "command", "timeout": 30,
+         "command": "VIBE_WISE_VAULT='{VAULT_PATH}' \"$HOME/.claude/hooks/vibe-wise-sync.sh\" push" }] }
+     ]
+   }
+   ```
+
+Hooks only apply to sessions started after the install. Repeat these steps on every PC, each with
+its own vault path.
+
+### Vault path format
+
+Use the path as the shell running Claude Code sees it. On WSL, a Windows path like
+`G:\Meu Drive\Vault\Vibe Wise` becomes `/mnt/g/Meu Drive/Vault/Vibe Wise`.
+
+WSL only mounts physical drives automatically. Virtual drives, such as the one Google Drive for
+desktop creates, have to be mounted by hand:
+
+```bash
+sudo mkdir -p /mnt/g
+sudo mount -t drvfs G: /mnt/g
+echo 'G: /mnt/g drvfs defaults 0 0' | sudo tee -a /etc/fstab   # mount it on every boot
+```
+
+If the vault path isn't reachable (drive not mounted, Google Drive not running yet), the hook
+logs it and skips the sync. It never blocks your prompt.
+
+## Limitations
+
+- **Never use two PCs at the same time.** The last push wins and overwrites the other PC's progress.
+- **After switching PCs, wait for your cloud drive to finish syncing** before running
+  `/vibe-wise:learn`; otherwise you'll pull an outdated copy.
+- **If Claude Code is killed or crashes,** `SessionEnd` may not run. That session's changes then
+  stay only on that PC and can be overwritten by the next pull.
+- **Files are copied, never deleted.** A file removed on one side stays on the other.
+- Files are compared by content (`rsync -c`), because Google Drive doesn't allow setting file
+  modification times.
+- `project-map.md` describes the architecture of the repo you're working on. Check your company's
+  policy before syncing work repos to a personal drive.
+
+## Roadmap
+
+- A single `profile.md` shared across all projects, instead of one copy per project folder.

@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VIBE_WISE_VAULT='CHANGEME' \"$HOME/.claude/hooks/vibe-wise-sync.sh\" pull",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VIBE_WISE_VAULT='CHANGEME' \"$HOME/.claude/hooks/vibe-wise-sync.sh\" resume",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VIBE_WISE_VAULT='CHANGEME' \"$HOME/.claude/hooks/vibe-wise-sync.sh\" push",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
