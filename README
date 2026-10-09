@@ -34,7 +34,7 @@ Send this prompt to your agent, replacing `{VAULT_PATH}` with the folder where t
 be stored:
 
 ```
-Install the hook from https://github.com/<your-user>/vibe-wise-vault-sync following its README.
+Install the hook from https://github.com/gustavo-zorzo/vibe-wise-vault-sync following its README.
 The vault path is: {VAULT_PATH}
 ```
 
